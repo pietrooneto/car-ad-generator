@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Generatore Annunci Auto</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto;max-width:900px;margin:24px auto;padding:0 16px}
+    form{display:grid;gap:12px;background:#f6f7f9;padding:16px;border-radius:12px}
+    input,textarea,select,button{padding:10px;border:1px solid #d6d9de;border-radius:8px;font-size:16px}
+    .card{background:#fff;padding:16px;border-radius:12px;border:1px solid #eceef2;margin-top:16px;white-space:pre-wrap}
+    .row{display:flex;gap:12px}.row>div{flex:1}
+  </style>
+</head>
+<body>
+  <h1>Generatore Descrizioni Annunci Auto</h1>
+  <form id="f">
+    <div><label>Marca</label><input name="marca" required></div>
+    <div><label>Modello</label><input name="modello" required></div>
+    <div class="row">
+      <div><label>Anno</label><input name="anno" placeholder="2015"></div>
+      <div><label>Chilometri</label><input name="km" placeholder="98.000"></div>
+    </div>
+    <div><label>Optional / Note</label><textarea name="optional" rows="3"></textarea></div>
+    <div><label>Tono</label>
+      <select name="stile">
+        <option value="professionale">Professionale</option>
+        <option value="amichevole">Amichevole</option>
+        <option value="sportivo">Sportivo</option>
+        <option value="premium">Premium</option>
+      </select>
+    </div>
+    <button>Genera</button>
+  </form>
+
+  <div id="out" class="card" style="display:none"></div>
+
+  <script>
+    const f = document.getElementById('f');
+    const out = document.getElementById('out');
+
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(f).entries());
+      out.style.display='block';
+      out.textContent='Genero...';
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        out.textContent = json.text || 'Nessuna risposta.';
+      } catch (err) {
+        out.textContent = 'Errore: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
