@@ -1,17 +1,17 @@
-import os, json, requests
+import os, requests
+from flask import Flask, request, jsonify
 
-def handler(request):
-    if request.method != "POST":
-        return {"statusCode": 405, "headers": {}, "body": "Method Not Allowed"}
+app = Flask(__name__)
 
-    try:
-        data = request.get_json() or {}
-    except Exception:
-        try:
-            data = json.loads(request.body.decode("utf-8"))
-        except Exception:
-            data = {}
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 
+@app.post("/")
+def generate():
+    if not GROQ_API_KEY:
+        return jsonify({"error": "GROQ_API_KEY non configurata"}), 500
+
+    data = request.get_json(silent=True) or {}
     marca   = (data.get("marca") or "").strip()
     modello = (data.get("modello") or "").strip()
     anno    = (data.get("anno") or "").strip()
@@ -34,17 +34,8 @@ Requisiti:
 - Chiudi con una call-to-action breve.
 Scrivi in italiano naturale."""
 
-    GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-    MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
-    if not GROQ_API_KEY:
-        return {
-            "statusCode": 500,
-            "headers": { "Content-Type": "application/json" },
-            "body": json.dumps({"error": "GROQ_API_KEY non configurata"})
-        }
-
     try:
-        resp = requests.post(
+        r = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -57,32 +48,17 @@ Scrivi in italiano naturale."""
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0.7,
-                "max_tokens": 600,
+                "max_tokens": 600
             },
-            timeout=30,
+            timeout=30
         )
-        if resp.status_code == 429:
-            return {
-                "statusCode": 429,
-                "headers": { "Content-Type": "application/json" },
-                "body": json.dumps({"error": "Rate limit superato"})
-            }
-        if resp.status_code >= 400:
-            return {
-                "statusCode": 500,
-                "headers": { "Content-Type": "application/json" },
-                "body": json.dumps({"error": f"Groq error {resp.status_code}", "details": resp.text})
-            }
-        j = resp.json()
+        if r.status_code == 429:
+            return jsonify({"error": "Rate limit superato"}), 429
+        if r.status_code >= 400:
+            return jsonify({"error": f"Groq error {r.status_code}", "details": r.text}), 500
+
+        j = r.json()
         text = (j.get("choices") or [{}])[0].get("message", {}).get("content", "")
-        return {
-            "statusCode": 200,
-            "headers": { "Content-Type": "application/json" },
-            "body": json.dumps({"text": text})
-        }
+        return jsonify({"text": text})
     except requests.RequestException as e:
-        return {
-            "statusCode": 500,
-            "headers": { "Content-Type": "application/json" },
-            "body": json.dumps({"error": "Errore rete", "details": str(e)})
-        }
+        return jsonify({"error": "Errore rete", "details": str(e)}), 500
