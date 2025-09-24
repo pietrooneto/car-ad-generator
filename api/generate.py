@@ -5,14 +5,12 @@ import traceback
 import requests
 from flask import Flask, request, jsonify
 
-# ========= LOGGING / DEBUG =========
 def _mask_key(k: str) -> str:
     if not k: return ""
     if len(k) <= 8: return "****"
     return f"{k[:4]}...{k[-4:]}"
 
 def _log(*args):
-    # stampa su stdout (visibile nei Function Logs di Vercel)
     print(*args, flush=True)
 
 _log("== Booting generate.py ==")
@@ -23,9 +21,8 @@ try:
 except Exception as e:
     _log("Flask import issue:", repr(e))
 
-# ========= FLASK APP =========
 app = Flask(__name__)
-app.url_map.strict_slashes = False  # niente redirect tra / e // finale
+app.url_map.strict_slashes = False  # accetta /api/generate e /api/generate/
 
 @app.get("/health")
 def health():
@@ -33,7 +30,6 @@ def health():
 
 @app.route("/", methods=["POST", "GET"])
 def generate():
-    # ---- ENV ----
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
     MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
     _log("Incoming request:", request.method, request.path)
@@ -46,7 +42,6 @@ def generate():
         _log("ERROR: GROQ_API_KEY missing")
         return jsonify({"error": "GROQ_API_KEY non configurata"}), 500
 
-    # ---- BODY PARSE ----
     try:
         payload = request.get_json(silent=True)
     except Exception:
@@ -86,7 +81,6 @@ Requisiti:
 - Chiudi con una call-to-action breve.
 Scrivi in italiano naturale."""
 
-    # ---- CALL GROQ ----
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -106,9 +100,7 @@ Scrivi in italiano naturale."""
     try:
         resp = requests.post(url, headers=headers, json=body, timeout=30)
         _log("Groq status:", resp.status_code)
-        # log solo anteprima body
-        preview = (resp.text or "")[:600].replace("\n", "\\n")
-        _log("Groq body preview:", preview)
+        _log("Groq body preview:", (resp.text or "")[:600].replace("\n", "\\n"))
 
         if resp.status_code == 429:
             return jsonify({"error": "Rate limit superato"}), 429
@@ -130,5 +122,4 @@ Scrivi in italiano naturale."""
     except Exception as e:
         trace = traceback.format_exc()
         _log("Unexpected error:", repr(e), "\n", trace)
-        # includo traccia anche nella risposta per debug (rimuovi in prod)
         return jsonify({"error": "Errore inatteso", "details": str(e), "trace": trace}), 500
