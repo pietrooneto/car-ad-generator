@@ -3,11 +3,14 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+@app.get("/health")
+def health():
+    return jsonify({"ok": True})
 
 @app.post("/")
 def generate():
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+    MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
     if not GROQ_API_KEY:
         return jsonify({"error": "GROQ_API_KEY non configurata"}), 500
 
@@ -59,6 +62,6 @@ Scrivi in italiano naturale."""
 
         j = r.json()
         text = (j.get("choices") or [{}])[0].get("message", {}).get("content", "")
-        return jsonify({"text": text})
+        return jsonify({"text": text or "Nessuna risposta."})
     except requests.RequestException as e:
         return jsonify({"error": "Errore rete", "details": str(e)}), 500
